@@ -1,0 +1,95 @@
+# @configure_input@
+
+# Package-specific substitution variables
+PACKAGE = @PACKAGE_NAME@
+VERSION = @PACKAGE_VERSION@
+TARNAME = @PACKAGE_TARNAME@
+DISTDIR = $(TARNAME)-$(VERSION)
+
+# Prefix-specific substitution variables
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+bindir      = @bindir@
+libdir      = @libdir@
+includedir  = @includedir@
+
+# VPATH-specific substitution variables
+srcdir = @srcdir@
+VPATH  = @srcdir@
+
+MCC_C = $(MCC_BIN)/mcc18
+MCC_L = $(MCC_BIN)/mplib
+
+export MCC_C
+export MCC_L
+
+all check dwengolib: checkdep
+	cd src && $(MAKE) $@
+
+clean install uninstall:
+	cd src && $(MAKE) $@
+
+### Distribution rule
+dist: $(DISTDIR).tar.gz
+
+$(DISTDIR).tar.gz: $(DISTDIR)
+	tar chof - $(DISTDIR) | gzip -9 -c > $@
+	rm -rf $(DISTDIR)
+
+$(DISTDIR): FORCE
+	mkdir -p $(DISTDIR)/src
+	cp $(srcdir)/configure.ac $(DISTDIR)
+	cp $(srcdir)/configure $(DISTDIR)
+	cp $(srcdir)/Makefile.in $(DISTDIR)
+	cp $(srcdir)/src/Makefile.in $(DISTDIR)/src
+	cp $(srcdir)/src/*.c src/*.h $(DISTDIR)/src
+	cp -r $(srcdir)/src/compiler $(DISTDIR)/src
+
+FORCE:
+	-rm $(DISTDIR).tar.gz >/dev/null 2>&1
+	-rm -rf $(DISTDIR) >/dev/null 2>&1
+
+### Checking that the distribution is correct
+# execute make distcheck before you post tarballs for public distribution!
+# This doesn't work if executed with sudo: MCC_C, MCC_L or MCC_BIN are all undefined!!
+distcheck: $(DISTDIR).tar.gz
+	@echo $(prefix)
+	@echo $${MCC_BIN}
+	gzip -cd $(DISTDIR).tar.gz | tar xvf -
+	cd $(DISTDIR) && ./configure
+	cd $(DISTDIR) && $(MAKE) all
+	cd $(DISTDIR) && $(MAKE) check
+	cd $(DISTDIR) && $(MAKE) DESTDIR=$${PWD}/_inst/ install
+	cd $(DISTDIR) && $(MAKE) DESTDIR=$${PWD}/_inst/ uninstall
+	@remaining="`find $${PWD}/$(DISTDIR)/_inst -type f | wc -l`"; \
+	if test "$${remaining}" -ne 0; then \
+	echo "*** $${remaining} file(s) remaining in stage directory!"; \
+	exit 1; \
+	fi
+	cd $(DISTDIR) && $(MAKE) clean
+	rm -rf $(DISTDIR)
+	@echo "*** Package $(distdir).tar.gz is ready for distribution."
+
+### Check that dependencies are correct
+checkdep:
+	@if [ ! -x $(MCC_C) ]; then \
+	echo "$(MCC_C) not found, please make sure MCC_BIN is set correctly"; \
+	exit 1; \
+	fi
+	@if [ ! -x $(MCC_L) ]; then \
+	echo "$(MCC_L) not found, please make sure MCC_BIN is set correctly"; \
+	exit 1; \
+	fi
+	@if [ ! -e ${MCC_INCLUDE}/p18f4550.h ]; then \
+	echo "${MCC_INCLUDE}/p18f4550.h not found, please make sure MCC_INCLUDE is set correctly"; \
+	exit 1; \
+	fi
+	@echo "All dependencies OK.";
+
+.PHONY: FORCE all clean checkdep check dist distcheck install uninstall
+
+Makefile: Makefile.in config.status
+	./config.status $@
+
+config.status: configure
+	./config.status --recheck
