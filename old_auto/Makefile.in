@@ -1,0 +1,74 @@
+# @configure_input@
+
+# Package-specific substitution variables
+PACKAGE = @PACKAGE_NAME@
+VERSION = @PACKAGE_VERSION@
+TARNAME = @PACKAGE_TARNAME@
+DISTDIR = $(TARNAME)-$(VERSION)
+
+# Prefix-specific substitution variables
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+bindir      = @bindir@
+libdir      = @libdir@
+includedir  = @includedir@
+
+# VPATH-specific substitution variables
+srcdir = @srcdir@
+VPATH  = @srcdir@
+
+# Program specific substitution variables
+MCC_C = @MCC_C@
+MCC_L = @MCC_L@
+
+all clean install uninstall check dwengolib:
+	cd src && $(MAKE) $@
+
+### Distribution rule
+dist: $(DISTDIR).tar.gz
+
+$(DISTDIR).tar.gz: $(DISTDIR)
+	tar chof - $(DISTDIR) | gzip -9 -c > $@
+	rm -rf $(DISTDIR)
+
+$(DISTDIR): FORCE
+	mkdir -p $(DISTDIR)/src
+	cp $(srcdir)/configure.ac $(DISTDIR)
+	cp $(srcdir)/configure $(DISTDIR)
+	cp $(srcdir)/config.h.in $(DISTDIR)
+	cp $(srcdir)/install-sh $(DISTDIR)
+	cp $(srcdir)/Makefile.in $(DISTDIR)
+	cp $(srcdir)/src/Makefile.in $(DISTDIR)/src
+	cp $(srcdir)/src/*.c src/*.h $(DISTDIR)/src
+	cp -r $(srcdir)/src/compiler $(DISTDIR)/src
+
+FORCE:
+	-rm $(DISTDIR).tar.gz >/dev/null 2>&1
+	-rm -rf $(DISTDIR) >/dev/null 2>&1
+
+### Checking that the distribution is correct
+# execute make distcheck before you post tarballs for public distribution!
+# This doesn't work if executed with sudo: MCC_C, MCC_L or MCC_BIN are all undefined!!
+distcheck: $(DISTDIR).tar.gz
+	gzip -cd $(DISTDIR).tar.gz | tar xvf -
+	cd $(DISTDIR) && ./configure
+	cd $(DISTDIR) && $(MAKE) all
+	cd $(DISTDIR) && $(MAKE) check
+	cd $(DISTDIR) && $(MAKE) DESTDIR=$${PWD}/_inst/ install
+	cd $(DISTDIR) && $(MAKE) DESTDIR=$${PWD}/_inst/ uninstall
+	@remaining="`find $${PWD}/$(DISTDIR)/_inst -type f | wc -l`"; \
+	if test "$${remaining}" -ne 0; then \
+	echo "*** $${remaining} file(s) remaining in stage directory!"; \
+	exit 1; \
+	fi
+	cd $(DISTDIR) && $(MAKE) clean
+	rm -rf $(DISTDIR)
+	@echo "*** Package $(distdir).tar.gz is ready for distribution."
+
+.PHONY: FORCE all clean check dist distcheck install uninstall
+
+Makefile: Makefile.in config.status
+	./config.status $@
+
+config.status: configure
+	./config.status --recheck
