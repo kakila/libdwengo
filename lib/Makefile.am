@@ -1,3 +1,25 @@
+### Copyright (C) 2012 Juan Pablo Carbajal
+###
+### This file is part of Dwengo.
+###
+### Octave is free software; you can redistribute it and/or modify it
+### under the terms of the GNU General Public License as published by the
+### Free Software Foundation; either version 3 of the License, or (at
+### your option) any later version.
+###
+### Octave is distributed in the hope that it will be useful, but WITHOUT
+### ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+### FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+### for more details.
+###
+### You should have received a copy of the GNU General Public License
+### along with Octave; see the file COPYING.  If not, see
+### <http://www.gnu.org/licenses/>.
+
+
+### Replace RANLIB with custom one
+RANLIB = true
+
 pkglib_LIBRARIES = libdwengo.a
 
 nobase_pkginclude_HEADERS = \
@@ -38,12 +60,17 @@ dwengoServo.c \
 dwengoTimer.c \
 dwengoUsart.c
 
-
 ### Redefine implicit (suffix) rule to convert form .c to .o
 .c.o:
 	$(MCC_C) $(MCCFLAGS) $<
 
 ### Redefine library rule
-libdwengo_a_AR = $(MCC_L) -q -c
+libdwengo.a: libdwengo.lib
+	mv libdwengo.lib $@
 
-# ; $(MCC_L) -q -r
+libdwengo.lib: $(libdwengo_a_OBJECTS)
+	rm -f $@
+	$(MCC_L) -q -c $@
+	$(MCC_L) -q -r $@ $(libdwengo_a_OBJECTS)
+
+.PHONY: libdwengo.lib
